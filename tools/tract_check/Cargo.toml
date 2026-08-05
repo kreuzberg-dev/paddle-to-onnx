@@ -1,0 +1,16 @@
+[package]
+name = "tract_check"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Standalone loader that verifies an ONNX model resolves under the pure-Rust tract-onnx backend, invoked as a subprocess from tools/export_hf_models.py."
+
+[[bin]]
+name = "tract_check"
+path = "src/main.rs"
+
+[dependencies]
+tract-onnx = "=0.23.4"
+
+[profile.release]
+opt-level = 1

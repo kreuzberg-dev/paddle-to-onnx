@@ -30,6 +30,7 @@ import argparse
 import hashlib
 import json
 import logging
+import subprocess
 import sys
 import tempfile
 from dataclasses import dataclass
@@ -61,14 +62,35 @@ class ModelConfig:
     opset_version: int = 17
     inputs: dict[str, tuple[tuple[int, ...], str]] | None = None
     upload_path: str | None = None
+    # Shape to pin the tract-onnx validation load to (N, C, H, W), or None to
+    # validate fully unpinned (batch/H/W symbolic). DBNet-style detection
+    # models (PP-OCRv5/v6 *_det) cannot shape-infer under tract with a
+    # symbolic H/W: the FPN's Resize-upsampled branch and its skip-connection
+    # branch compute the output extent via different Div/MulInt chains over
+    # the symbolic dimension, and tract's unifier cannot prove those two
+    # symbolic expressions equal (confirmed against the published
+    # v6/det/medium model — fails during into_optimized() at the FPN concat
+    # with "Impossible to unify MulInt(8, ...)"). This is not an export bug to
+    # fix: the consuming OCR pipeline pins detection models to a fixed square
+    # canvas for exactly this reason, so validating with a pin here reflects
+    # real usage. Do not remove this field to "simplify" the config —
+    # recognizers and classifiers must stay on the stricter unpinned check,
+    # since an unpinned failure there (e.g. the v6 rec height-clobbering
+    # regression) is exactly the class of bug this validation exists to catch.
+    tract_validation_shape: tuple[int, int, int, int] | None = None
+
+
+_DET_TRACT_VALIDATION_SHAPE = (1, 3, 960, 960)
 
 
 MODELS: dict[str, ModelConfig] = {
     "PP-OCRv5_server_det": ModelConfig(
         hf_repo="PaddlePaddle/PP-OCRv5_server_det",
+        tract_validation_shape=_DET_TRACT_VALIDATION_SHAPE,
     ),
     "PP-OCRv5_mobile_det": ModelConfig(
         hf_repo="PaddlePaddle/PP-OCRv5_mobile_det",
+        tract_validation_shape=_DET_TRACT_VALIDATION_SHAPE,
     ),
     "PP-OCRv5_server_rec": ModelConfig(
         hf_repo="PaddlePaddle/PP-OCRv5_server_rec",
@@ -82,14 +104,17 @@ MODELS: dict[str, ModelConfig] = {
     "PP-OCRv6_medium_det": ModelConfig(
         hf_repo="PaddlePaddle/PP-OCRv6_medium_det",
         upload_path="v6/det/medium",
+        tract_validation_shape=_DET_TRACT_VALIDATION_SHAPE,
     ),
     "PP-OCRv6_small_det": ModelConfig(
         hf_repo="PaddlePaddle/PP-OCRv6_small_det",
         upload_path="v6/det/small",
+        tract_validation_shape=_DET_TRACT_VALIDATION_SHAPE,
     ),
     "PP-OCRv6_tiny_det": ModelConfig(
         hf_repo="PaddlePaddle/PP-OCRv6_tiny_det",
         upload_path="v6/det/tiny",
+        tract_validation_shape=_DET_TRACT_VALIDATION_SHAPE,
     ),
     "PP-OCRv6_medium_rec": ModelConfig(
         hf_repo="PaddlePaddle/PP-OCRv6_medium_rec",
@@ -265,12 +290,32 @@ def fix_ort_compatibility(model_path: Path) -> None:
         onnx.save(model, str(model_path))
 
 
+# Axis names for the batch, height, and width slots of a 4D NCHW input.
+# Plain identifiers (rather than "?"/"None"/"unk__*") because tract-onnx
+# treats those specific tokens as an unresolvable unknown dimension (see
+# tract-onnx 0.23.4 src/tensor.rs:48-52), while a named dim_param like these
+# parses as a proper symbolic dimension it can reason about. This is a
+# separate, hand-picked namespace from the "DynamicDimension.N" counter the
+# paddle2onnx C++ core emits (paddle2onnx/mapper/onnx_helper.cc:163-171) for
+# axes that were already dynamic (-1) in the source Paddle model, so the two
+# never collide when both appear on the same graph.
+_DYNAMIC_AXIS_NAMES = {0: "N", 2: "H", 3: "W"}
+
+
 def make_inputs_dynamic(model_path: Path) -> None:
     """Make batch, height, and width dimensions dynamic for 4D image inputs.
 
     Applies to all 4D (NCHW) inputs in the graph. Non-image inputs like
     im_shape (1,2) and scale_factor (1,2) are naturally skipped since they
-    are not 4D. Dimensions that are already dynamic are left unchanged.
+    are not 4D.
+
+    A dimension is left untouched if it is already dynamic (has a
+    `dim_param`, e.g. a "DynamicDimension.N" name from the C++ core) or if it
+    already has a concrete `dim_value` — a fixed dimension is a deliberate
+    part of the model contract (e.g. the recognizer's fixed height of 48, or
+    a classifier's fixed input resolution) and must never be silently
+    destroyed. Only a dimension with neither set (truly unspecified) is
+    assigned a symbolic name.
     """
     model = onnx.load(str(model_path))
     changed = False
@@ -281,10 +326,13 @@ def make_inputs_dynamic(model_path: Path) -> None:
         if len(dims) != 4:
             continue
 
-        for idx, name in [(0, "None"), (2, "?"), (3, "?")]:
-            if not dims[idx].dim_param:
-                dims[idx].dim_param = name
-                changed = True
+        for idx, axis_name in _DYNAMIC_AXIS_NAMES.items():
+            dim = dims[idx]
+            if dim.WhichOneof("value") is not None:
+                # Already concrete (dim_value) or already named (dim_param).
+                continue
+            dim.dim_param = axis_name
+            changed = True
 
     if changed:
         onnx.save(model, str(model_path))
@@ -366,8 +414,60 @@ def _build_dummy_inputs(config: ModelConfig, session: ort.InferenceSession) -> d
     return input_feed
 
 
+# tools/tract_check/ is a tiny standalone Rust binary crate (not part of any
+# Cargo workspace) that loads an ONNX model through tract-onnx and confirms
+# every input dimension resolves. There is no maintained Python binding for
+# tract-onnx, so invoking this helper as a subprocess is the simplest robust
+# way to run the tract half of dual-engine validation from this pipeline.
+_TRACT_CHECK_DIR = Path(__file__).resolve().parent / "tract_check"
+_TRACT_CHECK_BIN = _TRACT_CHECK_DIR / "target" / "release" / "tract_check"
+
+
+def _ensure_tract_check_binary() -> Path:
+    """Build (if needed) and return the path to the tract_check helper binary."""
+    if _TRACT_CHECK_BIN.exists():
+        return _TRACT_CHECK_BIN
+
+    logger.info("Building tract_check helper binary (first run)...")
+    try:
+        subprocess.run(["cargo", "build", "--release"], cwd=str(_TRACT_CHECK_DIR), check=True)
+    except FileNotFoundError as error:
+        raise RuntimeError(
+            "cargo not found: tract_check (tools/tract_check/) requires a Rust toolchain "
+            "to build the tract-onnx validation helper. Install Rust (https://rustup.rs) "
+            "or run `cargo build --release` in tools/tract_check/ manually."
+        ) from error
+    except subprocess.CalledProcessError as error:
+        raise RuntimeError(f"Building tract_check failed: {error}") from error
+
+    return _TRACT_CHECK_BIN
+
+
+def validate_with_tract(model_path: Path, shape: tuple[int, int, int, int] | None = None) -> None:
+    """Confirm the ONNX model loads and shape-resolves under tract-onnx.
+
+    Complements `validate_onnx`'s ONNX Runtime check: an artifact is only
+    considered valid once it loads cleanly under BOTH engines. This is what
+    would have caught the v6 recognizer height-clobbering regression, since
+    ORT tolerates the "?" dim_param token that tract cannot resolve.
+
+    `shape`, when given, pins input 0 to that concrete (N, C, H, W) before
+    loading — see `ModelConfig.tract_validation_shape` for why detection
+    models need this and everything else must stay on the stricter, fully
+    unpinned check (`shape=None`).
+    """
+    binary = _ensure_tract_check_binary()
+    command = [str(binary), str(model_path)]
+    if shape is not None:
+        command += ["--shape", ",".join(str(dim) for dim in shape)]
+    result = subprocess.run(command, capture_output=True, text=True, check=False)
+    if result.returncode != 0:
+        raise RuntimeError(f"tract-onnx failed to load {model_path} (shape={shape}): {result.stderr.strip()}")
+    logger.info("tract-onnx load: PASSED (shape=%s)", shape or "unpinned")
+
+
 def validate_onnx(config: ModelConfig, model_path: Path) -> dict:
-    """Validate ONNX model with checker and ORT inference."""
+    """Validate ONNX model with checker, ORT inference, and tract-onnx loading."""
     model = onnx.load(str(model_path))
     onnx.checker.check_model(model)
     logger.info("ONNX checker: PASSED")
@@ -383,6 +483,8 @@ def validate_onnx(config: ModelConfig, model_path: Path) -> dict:
         outputs.append({"shape": list(r.shape), "dtype": str(r.dtype)})
 
     logger.info("ORT inference: PASSED")
+
+    validate_with_tract(model_path, config.tract_validation_shape)
 
     with open(model_path, "rb") as f:
         sha256 = hashlib.sha256(f.read()).hexdigest()
