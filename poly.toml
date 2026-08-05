@@ -33,6 +33,7 @@ extend_exclude = ["paddle2onnx/**", "tools/**", "tests/**", "cmake/**", "setup.p
 [lint.python.ruff]
 select = ["B", "C4", "E", "F", "FURB", "I", "PERF", "PIE", "RET", "RUF", "SIM", "TCH", "UP", "W"]
 ignore = ["E501", "E721", "PERF401", "RET504", "SIM108", "SIM112", "SIM115"]
+known_third_party = ["paddle"]
 
 [lint.markdown.rumdl]
 disable = ["MD041"]

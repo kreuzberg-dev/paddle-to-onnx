@@ -12,10 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from onnxbase import APIOnnx, randtool
-
 import paddle
 import paddle.nn as nn
+from onnxbase import APIOnnx, randtool
 
 
 class Net(paddle.nn.Layer):

@@ -18,10 +18,9 @@ from random import shuffle
 
 import hypothesis.strategies as st
 import numpy as np
+import paddle
 from auto_scan_test import BaseNet, OPConvertAutoScanTest
 from onnxbase import _test_only_pir
-
-import paddle
 
 
 class Net(BaseNet):

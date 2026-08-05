@@ -15,11 +15,10 @@
 import unittest
 
 import hypothesis.strategies as st
+import paddle
 import pytest
 from auto_scan_test import BaseNet, OPConvertAutoScanTest
 from onnxbase import randtool
-
-import paddle
 
 pytestmark = pytest.mark.xfail(reason="yolo_box does not preserve float64", strict=False)
 

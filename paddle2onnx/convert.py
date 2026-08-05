@@ -19,9 +19,10 @@ import traceback
 from contextlib import contextmanager
 
 import paddle
-import paddle2onnx.paddle2onnx_cpp2py_export as c_p2o
 from paddle.base.executor import global_scope
 from paddle.decomposition import decomp
+
+import paddle2onnx.paddle2onnx_cpp2py_export as c_p2o
 from paddle2onnx.utils import logging, paddle2onnx_export_configs
 
 PADDLE2ONNX_EXPORT_TEMP_DIR = None

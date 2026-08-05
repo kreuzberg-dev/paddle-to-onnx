@@ -16,10 +16,9 @@ import unittest
 
 import hypothesis.strategies as st
 import numpy as np
+import paddle
 import pytest
 from auto_scan_test import BaseNet, OPConvertAutoScanTest
-
-import paddle
 
 pytestmark = pytest.mark.xfail(reason="pool ceil_mode output-shape mismatch vs ONNX", strict=False)
 

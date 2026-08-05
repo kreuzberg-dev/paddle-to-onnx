@@ -12,10 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import paddle
 import pytest
 from onnxbase import APIOnnx, _test_with_pir, randtool
-
-import paddle
 
 
 class Net(paddle.nn.Layer):

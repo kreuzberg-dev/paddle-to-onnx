@@ -21,10 +21,10 @@ from inspect import isfunction
 
 import numpy as np
 import onnx
-from onnxruntime import InferenceSession
-
 import paddle
 import paddle.static as static
+from onnxruntime import InferenceSession
+
 import paddle2onnx
 from paddle2onnx.convert import dygraph2onnx
 

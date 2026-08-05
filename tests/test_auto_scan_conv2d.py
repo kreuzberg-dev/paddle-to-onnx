@@ -16,10 +16,9 @@ import unittest
 
 import hypothesis.strategies as st
 import numpy as np
+import paddle
 from auto_scan_test import BaseNet, OPConvertAutoScanTest
 from onnxbase import _test_with_pir
-
-import paddle
 
 
 class Net(BaseNet):

@@ -12,9 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from onnxbase import APIOnnx, _test_only_pir
-
 import paddle
+from onnxbase import APIOnnx, _test_only_pir
 
 global_config = {
     "axis": 0,

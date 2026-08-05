@@ -3,9 +3,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-import pytest
-
 import paddle
+import pytest
 
 
 @pytest.fixture(autouse=True)

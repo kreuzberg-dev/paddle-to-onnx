@@ -12,9 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from onnxbase import APIOnnx
-
 import paddle
+from onnxbase import APIOnnx
 
 
 class Net(paddle.nn.Layer):

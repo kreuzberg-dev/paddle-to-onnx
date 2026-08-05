@@ -18,10 +18,9 @@ import time
 import unittest
 
 import numpy as np
+import paddle
 import pytest
 from fake_quant import _HAS_IR_GRAPH, post_quant_fake
-
-import paddle
 
 pytestmark = pytest.mark.skip(reason="requires model data + uses removed paddle2onnx.command.c_paddle_to_onnx API")
 

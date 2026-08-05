@@ -16,11 +16,11 @@ import os
 
 import numpy as np
 import onnxruntime
-import pytest
-
 import paddle
-import paddle2onnx
+import pytest
 from paddle.inference import PlaceType, PrecisionType, convert_to_mixed_precision
+
+import paddle2onnx
 
 
 @pytest.mark.skip(reason="requires ResNet50 model download and a GPU (CPU-only build)")

@@ -22,10 +22,9 @@ from itertools import product
 
 import hypothesis.strategies as st
 import numpy as np
+import paddle
 from hypothesis import HealthCheck, given, settings
 from onnxbase import APIOnnx, randtool
-
-import paddle
 
 paddle.set_device("cpu")
 

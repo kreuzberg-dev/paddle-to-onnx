@@ -15,9 +15,8 @@
 import unittest
 
 import hypothesis.strategies as st
-from auto_scan_test import BaseNet, OPConvertAutoScanTest
-
 import paddle
+from auto_scan_test import BaseNet, OPConvertAutoScanTest
 
 
 class NetAvgPool1d(BaseNet):

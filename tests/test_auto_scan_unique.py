@@ -15,10 +15,9 @@
 import unittest
 
 import hypothesis.strategies as st
+import paddle
 import pytest
 from auto_scan_test import BaseNet, OPConvertAutoScanTest
-
-import paddle
 
 pytestmark = pytest.mark.xfail(reason="unique output dtype/order mismatch vs ONNX", strict=False)
 

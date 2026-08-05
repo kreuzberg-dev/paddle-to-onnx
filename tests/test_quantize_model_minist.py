@@ -18,9 +18,8 @@ import time
 import unittest
 
 import numpy as np
-import pytest
-
 import paddle
+import pytest
 from paddle.static.quantization import PostTrainingQuantization
 
 pytestmark = pytest.mark.skip(reason="requires MNIST model download not present locally")

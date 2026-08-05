@@ -16,10 +16,9 @@ import unittest
 
 import hypothesis.strategies as st
 import numpy as np
+import paddle
 import pytest
 from auto_scan_test import BaseNet, OPConvertAutoScanTest
-
-import paddle
 
 
 class NetAvgpool2d(BaseNet):

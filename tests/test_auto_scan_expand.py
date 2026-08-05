@@ -17,11 +17,10 @@ import unittest
 
 import hypothesis.strategies as st
 import numpy as np
+import paddle
 import pytest
 from auto_scan_test import BaseNet, OPConvertAutoScanTest
 from onnxbase import _test_only_pir
-
-import paddle
 
 pytestmark = pytest.mark.skip(reason="paddle 3.x golden run: reshape rejects 1-D int tensor")
 

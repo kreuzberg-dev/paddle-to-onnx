@@ -17,11 +17,11 @@ import unittest
 
 import numpy as np
 import onnxruntime as ort
-from onnxbase import _test_only_pir
-
 import paddle
-import paddle2onnx
+from onnxbase import _test_only_pir
 from paddle.base import unique_name
+
+import paddle2onnx
 
 
 def convert_scale_to_paddle(onnx_scale, qmax):

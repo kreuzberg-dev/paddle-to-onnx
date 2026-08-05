@@ -16,11 +16,10 @@ import unittest
 
 import hypothesis.strategies as st
 import numpy as np
+import paddle
 import pytest
 from auto_scan_test import BaseNet, OPConvertAutoScanTest
 from onnxbase import _test_with_pir
-
-import paddle
 
 pytestmark = pytest.mark.xfail(reason="layer_norm multi-dim scale/bias shape not handled", strict=False)
 

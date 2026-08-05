@@ -20,13 +20,12 @@ import time
 import unittest
 
 import numpy as np
-import pytest
-from PIL import Image
-
 import paddle
+import pytest
 from paddle.dataset.common import download
 from paddle.static.io import load_inference_model
 from paddle.static.quantization import PostTrainingQuantization
+from PIL import Image
 
 pytestmark = pytest.mark.skip(reason="requires ImageNet inference models not present locally")
 

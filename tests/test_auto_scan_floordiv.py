@@ -15,10 +15,9 @@
 import unittest
 
 import hypothesis.strategies as st
+import paddle
 from auto_scan_test import BaseNet, OPConvertAutoScanTest
 from onnxbase import _test_with_pir, randtool
-
-import paddle
 
 op_api_map = {"elementwise_floordiv": paddle.floor_divide}
 
