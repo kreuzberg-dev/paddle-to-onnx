@@ -16,12 +16,13 @@ import warnings
 
 import packaging.version as pv
 
+PADDLE_INSTALL_GUIDANCE = (
+    "Please install the latest paddle: python -m pip install --pre "
+    "paddlepaddle -i https://www.paddlepaddle.org.cn/packages/nightly/cpu/, "
+    "more information: https://www.paddlepaddle.org.cn/install/quick?docurl=undefined"
+)
+
 try:
-    err_msg = (
-        "Please install the latest paddle: python -m pip install --pre "
-        "paddlepaddle -i https://www.paddlepaddle.org.cn/packages/nightly/cpu/, "
-        "more information: https://www.paddlepaddle.org.cn/install/quick?docurl=undefined"
-    )
     import paddle
 
     lib_paddle_name = "paddlepaddle-gpu" if paddle.is_compiled_with_cuda() else "paddlepaddle"
@@ -34,16 +35,18 @@ try:
     else:
         min_version = "3.0.0"
         if pv.parse(paddle_version) < pv.parse(min_version):
-            raise ValueError(f"The paddlepaddle version should not be less than {min_version}. {err_msg}")
+            raise ValueError(
+                f"The paddlepaddle version should not be less than {min_version}. {PADDLE_INSTALL_GUIDANCE}"
+            )
 except ImportError as exc:
-    raise ImportError(f"Failed to import paddle. Please ensure paddle is installed. {err_msg}") from exc
+    raise ImportError(f"Failed to import paddle. Please ensure paddle is installed. {PADDLE_INSTALL_GUIDANCE}") from exc
 
-from .convert import (
+from .convert import (  # noqa: E402
     dygraph2onnx,  # noqa: F401
     export,  # noqa: F401
     load_parameter,  # noqa: F401
     save_program,  # noqa: F401
 )
-from .version import version
+from .version import version  # noqa: E402
 
 __version__ = version
