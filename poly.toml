@@ -21,6 +21,7 @@ exclude = [
   "third_party/**",
   "vendor/**",
   "docs/**",
+  "exports/pp_doclayout_v3_reference.json",
   ".github/ISSUE_TEMPLATE/**",
   "debug/**",
   "crates/*-ffi/include/*.h",

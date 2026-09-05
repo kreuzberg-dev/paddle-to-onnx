@@ -76,7 +76,7 @@ tasks:
   typecheck:
     desc: "Run pyrefly type checker"
     cmds:
-      - pyrefly check paddle2onnx setup.py
+      - uv run --group dev pyrefly check paddle2onnx setup.py
 
   test:
     desc: "Run tests"

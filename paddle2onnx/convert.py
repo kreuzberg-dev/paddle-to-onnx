@@ -17,6 +17,7 @@ import shutil
 import tempfile
 import traceback
 from contextlib import contextmanager
+from typing import TYPE_CHECKING, cast
 
 import paddle
 from paddle.base.executor import global_scope
@@ -24,6 +25,10 @@ from paddle.decomposition import decomp
 
 import paddle2onnx.paddle2onnx_cpp2py_export as c_p2o
 from paddle2onnx.utils import logging, paddle2onnx_export_configs
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+    from contextlib import AbstractContextManager
 
 PADDLE2ONNX_EXPORT_TEMP_DIR = None
 
@@ -89,7 +94,9 @@ def decompose_program(model_filename):
     )
     model = paddle.jit.load(model_file_path)
     new_program = model.program().clone()
-    with decomp.prim_guard():
+    # Paddle decorates this generator as a context manager at runtime, but its annotation omits that wrapper.
+    prim_guard = cast("Callable[[], AbstractContextManager[None]]", decomp.prim_guard)
+    with prim_guard():
         decomp.decompose_dist_program(new_program)
 
     if compare_programs(model.program(), new_program):
@@ -162,7 +169,7 @@ def export(
                 if verbose:
                     logging.info("The original inference program is:\n")
                     logging.info(f"{inference_program}\n\n")
-                program = paddle.pir.translate_to_pir(inference_program.desc)
+                program = paddle.pir.translate_to_pir(cast("paddle.static.Program", inference_program).desc)
                 # ~keep TODO(wangmingkai02): verify whether load_parameter(program) is required here.
                 load_parameter(program)
                 save_program(program, new_model_file_path)
@@ -280,7 +287,13 @@ def export(
                 import io
 
                 import onnx
-                from polygraphy.backend.onnx import fold_constants
+                from polygraphy.backend import onnx as polygraphy_onnx
+
+                # Polygraphy exposes this function lazily at runtime, which its static module surface does not declare.
+                fold_constants = cast(
+                    "Callable[[onnx.ModelProto], onnx.ModelProto]",
+                    vars(polygraphy_onnx)["fold_constants"],
+                )
 
                 model_stream = io.BytesIO(onnx_model_str)
                 onnx_model = onnx.load_model(model_stream)
